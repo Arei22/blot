@@ -1,11 +1,14 @@
 use std::path::Path;
 
 use crate::client::error::ClientError;
+use crate::commands::extract_bool_optional;
 use crate::commands::extract_str;
 use crate::commands::extract_str_optional;
 use crate::database::postgresql::PgPool;
 use crate::database::postgresql::PgPooled;
 use crate::database::schemas::servers::dsl as servers_dsl;
+use crate::util::fileshare::generate_upload;
+use crate::util::fileshare::get_upload;
 use crate::util::parse_key;
 use crate::util::{EMBED_COLOR, get_pool_from_ctx};
 use diesel::dsl::exists;
@@ -14,7 +17,6 @@ use diesel_async::RunQueryDsl;
 use serde_yml::Mapping;
 use serde_yml::Value;
 use serenity::all::CommandInteraction;
-use serenity::all::CreateInteractionResponseMessage;
 use serenity::all::{CommandOptionType, Context, CreateCommand, CreateCommandOption, CreateEmbed};
 use tokio::fs;
 
@@ -22,6 +24,7 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) -> Result<(), Clie
     let name = extract_str("name", &command.data.options())?.to_lowercase();
     let ver = extract_str_optional("version", &command.data.options())?;
     let difficulty_option = extract_str_optional("difficulty", &command.data.options())?;
+    let map = extract_bool_optional("map", &command.data.options())?.unwrap_or(false);
 
     let pool: PgPool = get_pool_from_ctx(ctx).await?;
     let mut conn: PgPooled = pool.get().await?;
@@ -54,6 +57,17 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) -> Result<(), Clie
         return Err(ClientError::OtherStatic("Pas de port disponible."));
     }
 
+    command
+        .edit_response(
+            &ctx.http,
+            serenity::builder::EditInteractionResponse::new().add_embed(
+                CreateEmbed::new()
+                    .description("**Création d'un serveur.**")
+                    .color(EMBED_COLOR),
+            ),
+        )
+        .await?;
+
     let mut services = Mapping::new();
 
     let mut mc = Mapping::new();
@@ -65,7 +79,7 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) -> Result<(), Clie
     mc.insert(Value::String("stdin_open".into()), Value::Bool(true));
     mc.insert(
         Value::String("ports".into()),
-        Value::Sequence(vec![Value::String(format!("{}:25565", port.to_string(),))]),
+        Value::Sequence(vec![Value::String(format!("{port}:25565"))]),
     );
 
     let mut env = Mapping::new();
@@ -105,11 +119,12 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) -> Result<(), Clie
         Value::String(parse_key::<String>("MAX_MEMORY")?),
     );
 
-    mc.insert(Value::String("environment".into()), Value::Mapping(env));
-
     mc.insert(
         Value::String("volumes".into()),
-        Value::Sequence(vec![Value::String("./data:/data".into())]),
+        Value::Sequence(vec![
+            Value::String("./data:/data".into()),
+            Value::String(".:/world".to_string()),
+        ]),
     );
 
     let mut healthcheck = Mapping::new();
@@ -127,13 +142,6 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) -> Result<(), Clie
 
     mc.insert("healthcheck".into(), Value::Mapping(healthcheck));
 
-    services.insert(Value::String("mc".into()), Value::Mapping(mc));
-
-    let mut root = Mapping::new();
-    root.insert(Value::String("services".into()), Value::Mapping(services));
-
-    let yml_str = serde_yml::to_string(&root)?;
-
     let id: i64 = insert_into(servers_dsl::servers)
         .values((
             servers_dsl::name.eq(&name),
@@ -150,22 +158,56 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) -> Result<(), Clie
     let dir = Path::new("worlds").join(id.to_string());
 
     fs::create_dir_all(&dir).await?;
-    fs::write(dir.join("docker-compose.yml"), yml_str).await?;
 
-    log::info!("Created \"{name}\" server!");
+    if map {
+        let uuid = generate_upload().await?;
+
+        let doup = parse_key::<String>("DOUP_URL")?;
+
+        let embed = CreateEmbed::new()
+            .description(format!(
+                "**Veuillez upload la map à {doup}/upload?uuid={uuid}**"
+            ))
+            .color(EMBED_COLOR);
+
+        command
+            .edit_response(
+                &ctx.http,
+                serenity::builder::EditInteractionResponse::new().add_embed(embed),
+            )
+            .await?;
+
+        get_upload(uuid.clone(), id).await?;
+
+        env.insert(
+            Value::String("WORLD".into()),
+            Value::String(format!("/world/{uuid}")),
+        );
+    }
+
+    mc.insert(Value::String("environment".into()), Value::Mapping(env));
+
+    services.insert(Value::String("mc".into()), Value::Mapping(mc));
+
+    let mut root = Mapping::new();
+    root.insert(Value::String("services".into()), Value::Mapping(services));
+
+    let yml_str = serde_yml::to_string(&root)?;
+
+    fs::write(dir.join("docker-compose.yml"), yml_str).await?;
 
     let embed = CreateEmbed::new()
         .description(format!("**Le serveur ``{name}`` a bien été créé !**"))
         .color(EMBED_COLOR);
 
     command
-        .create_response(
+        .edit_response(
             &ctx.http,
-            serenity::builder::CreateInteractionResponse::Message(
-                CreateInteractionResponseMessage::new().add_embed(embed),
-            ),
+            serenity::builder::EditInteractionResponse::new().add_embed(embed),
         )
         .await?;
+
+    log::info!("Created \"{name}\" server!");
 
     Ok(())
 }
@@ -210,4 +252,11 @@ pub fn register() -> CreateCommand {
             .add_string_choice("normal", "normal")
             .add_string_choice("hard", "hard"),
         )
+        .add_option(CreateCommandOption::new(
+            CommandOptionType::Boolean,
+            "map",
+            "Mettre une map ?",
+        ))
+        .description_localized("en-US", "Add a map?")
+        .description_localized("en-GB", "Add a map?")
 }

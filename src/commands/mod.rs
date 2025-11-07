@@ -32,3 +32,16 @@ pub fn extract_str_optional<'a>(
             _ => Err(ClientError::Other(format!("Invalid value for arg {name}."))),
         })
 }
+
+pub fn extract_bool_optional(
+    name: &str,
+    options: &[ResolvedOption<'_>],
+) -> Result<Option<bool>, ClientError> {
+    options
+        .iter()
+        .find(|option| option.name == name)
+        .map_or(Ok(None), |option| match &option.value {
+            ResolvedValue::Boolean(value) => Ok(Some(*value)),
+            _ => Err(ClientError::Other(format!("Invalid value for arg {name}."))),
+        })
+}

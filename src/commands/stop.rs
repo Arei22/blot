@@ -9,8 +9,7 @@ use diesel::dsl::exists;
 use diesel::{ExpressionMethods, QueryDsl};
 use diesel_async::RunQueryDsl;
 use serenity::all::{
-    CommandInteraction, CommandOptionType, Context, CreateCommand, CreateCommandOption,
-    CreateEmbed, CreateInteractionResponseMessage,
+    CommandInteraction, CommandOptionType, Context, CreateCommand, CreateCommandOption, CreateEmbed,
 };
 use tokio::process::Command;
 
@@ -47,11 +46,9 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) -> Result<(), Clie
         .color(EMBED_COLOR);
 
     command
-        .create_response(
+        .edit_response(
             &ctx.http,
-            serenity::builder::CreateInteractionResponse::Message(
-                CreateInteractionResponseMessage::new().add_embed(embed),
-            ),
+            serenity::builder::EditInteractionResponse::new().add_embed(embed),
         )
         .await?;
 

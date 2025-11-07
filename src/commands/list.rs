@@ -6,7 +6,7 @@ use diesel::{QueryDsl, Queryable};
 use diesel_async::RunQueryDsl;
 use serenity::all::{
     CommandInteraction, Context, CreateActionRow, CreateButton, CreateCommand, CreateEmbedFooter,
-    CreateInteractionResponseMessage, EditInteractionResponse,
+    EditInteractionResponse,
 };
 use serenity::builder::CreateEmbed;
 
@@ -63,11 +63,9 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) -> Result<(), Clie
             .color(EMBED_COLOR);
 
         command
-            .create_response(
+            .edit_response(
                 &ctx.http,
-                serenity::builder::CreateInteractionResponse::Message(
-                    CreateInteractionResponseMessage::new().add_embed(embed),
-                ),
+                serenity::builder::EditInteractionResponse::new().add_embed(embed),
             )
             .await?;
 
@@ -77,9 +75,10 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) -> Result<(), Clie
     let ip = parse_key::<String>("IP")?;
 
     let servers_strings: Vec<String> = servers.iter().map(|server| format!(
-            "* **{}**\n  * **Adresse** : ``{}``\n  * **Version** : ``{}``\n  * **Difficulté** : ``{}``\n  * **Démarré** : ``{}``",
+            "* **{}**\n  * **Adresse** : ``{}:{}``\n  * **Version** : ``{}``\n  * **Difficulté** : ``{}``\n  * **Démarré** : ``{}``",
             server.name,
-            format!("{}:{}", ip, server.port),
+            ip,
+            server.port,
             server.version,
             server.difficulty,
             if server.started {"oui"} else {"non"},
@@ -92,22 +91,20 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) -> Result<(), Clie
         .color(EMBED_COLOR);
 
     command
-        .create_response(
+        .edit_response(
             &ctx.http,
-            serenity::builder::CreateInteractionResponse::Message(
-                CreateInteractionResponseMessage::new()
-                    .add_embed(embed)
-                    .button(
-                        CreateButton::new("page-0")
-                            .label("Précédent")
-                            .disabled(true),
-                    )
-                    .button(
-                        CreateButton::new("page-2")
-                            .label("Suivant")
-                            .disabled(pages_count == 1),
-                    ),
-            ),
+            serenity::builder::EditInteractionResponse::new()
+                .add_embed(embed)
+                .button(
+                    CreateButton::new("page-0")
+                        .label("Précédent")
+                        .disabled(true),
+                )
+                .button(
+                    CreateButton::new("page-2")
+                        .label("Suivant")
+                        .disabled(pages_count == 1),
+                ),
         )
         .await?;
 
@@ -141,9 +138,10 @@ pub async fn get_page(
     let ip = parse_key::<String>("IP")?;
 
     let servers_strings: Vec<String> = servers.iter().map(|server| format!(
-            "* **{}**\n  * **Adresse** : ``{}``\n  * **Version** : ``{}``\n  * **Difficulté** : ``{}``\n  * **Démarré** : ``{}``",
+            "* **{}**\n  * **Adresse** : ``{}:{}``\n  * **Version** : ``{}``\n  * **Difficulté** : ``{}``\n  * **Démarré** : ``{}``",
             server.name,
-            format!("{}:{}", ip, server.port),
+            ip,
+            server.port,
             server.version,
             server.difficulty,
             if server.started {"oui"} else {"non"},

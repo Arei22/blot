@@ -18,7 +18,8 @@
 This is a discord bot with which you can create, start, stop and delete servers. You can actually create a server in the version and difficulty of your choice, and you can also list all the servers created. For now there is not the possibility to use a mod, a map, or a plugin.
 
 ## Instalation
-Install the bot with docker compose and the ``docker-compose.yml`` :
+You will need of a doup site (https://github.com/Arei22/doup).
+Then Install the bot with docker compose and the ``docker-compose.yml`` :
 ```yml
 services:
   postgre:
@@ -52,6 +53,8 @@ services:
       MIN_PORT: 10000
       MAX_PORT: 10500
       MAX_MEMORY: 20G
+      DOUP_URL: URL
+      TOKEN: token
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     depends_on:

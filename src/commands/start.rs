@@ -9,8 +9,7 @@ use diesel::dsl::exists;
 use diesel::{ExpressionMethods, QueryDsl};
 use diesel_async::RunQueryDsl;
 use serenity::all::{
-    CommandInteraction, CommandOptionType, Context, CreateCommand, CreateCommandOption,
-    CreateEmbed, CreateInteractionResponseMessage,
+    CommandInteraction, CommandOptionType, Context, CreateCommand, CreateCommandOption, CreateEmbed,
 };
 use tokio::process::Command;
 
@@ -45,11 +44,9 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) -> Result<(), Clie
         .color(EMBED_COLOR);
 
     command
-        .create_response(
+        .edit_response(
             &ctx.http,
-            serenity::builder::CreateInteractionResponse::Message(
-                CreateInteractionResponseMessage::new().add_embed(embed),
-            ),
+            serenity::builder::EditInteractionResponse::new().add_embed(embed),
         )
         .await?;
 
@@ -59,11 +56,17 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) -> Result<(), Clie
         .get_result(&mut conn)
         .await?;
 
-    Command::new("docker")
+    let r = Command::new("docker")
         .args(["compose", "up", "-d", "--wait"])
         .current_dir(Path::new("worlds").join(id.to_string()))
         .status()
         .await?;
+
+    if !r.success() {
+        return Err(ClientError::Other(
+            "Erreur au démarrage du serv".to_string(),
+        ));
+    }
 
     diesel::update(servers_dsl::servers.filter(servers_dsl::name.eq(&name)))
         .set(servers_dsl::started.eq(true))

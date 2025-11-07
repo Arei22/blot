@@ -9,8 +9,7 @@ use diesel::dsl::exists;
 use diesel::{ExpressionMethods, QueryDsl, delete};
 use diesel_async::RunQueryDsl;
 use serenity::all::{
-    CommandInteraction, CommandOptionType, Context, CreateCommand, CreateCommandOption,
-    CreateEmbed, CreateInteractionResponseMessage,
+    CommandInteraction, CommandOptionType, Context, CreateCommand, CreateCommandOption, CreateEmbed,
 };
 use tokio::fs;
 
@@ -42,6 +41,17 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) -> Result<(), Clie
         return Err(ClientError::OtherStatic("Le serveur est lancé."));
     }
 
+    let embed = CreateEmbed::new()
+        .description("**Supression du serveur...**".to_string())
+        .color(EMBED_COLOR);
+
+    command
+        .edit_response(
+            &ctx.http,
+            serenity::builder::EditInteractionResponse::new().add_embed(embed),
+        )
+        .await?;
+
     let id: i64 = servers_dsl::servers
         .select(servers_dsl::id)
         .filter(servers_dsl::name.eq(&name))
@@ -57,16 +67,14 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) -> Result<(), Clie
 
     log::info!("Deleted server : {name}!");
 
-    let embed = CreateEmbed::new()
+    let embed2 = CreateEmbed::new()
         .description(format!("**Serveur ``{name}`` supprimé !**"))
         .color(EMBED_COLOR);
 
     command
-        .create_response(
+        .edit_response(
             &ctx.http,
-            serenity::builder::CreateInteractionResponse::Message(
-                CreateInteractionResponseMessage::new().add_embed(embed),
-            ),
+            serenity::builder::EditInteractionResponse::new().add_embed(embed2),
         )
         .await?;
 

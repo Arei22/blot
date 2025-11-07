@@ -38,6 +38,17 @@ impl EventHandler for SerenityHandler {
 
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
         if let Interaction::Command(command) = interaction {
+            let embed = CreateEmbed::new()
+                .description("**Chargement de la commande...**")
+                .color(EMBED_COLOR);
+            let _ = command
+                .create_response(
+                    &ctx.http,
+                    serenity::builder::CreateInteractionResponse::Message(
+                        CreateInteractionResponseMessage::new().add_embed(embed),
+                    ),
+                )
+                .await;
             let res = match command.data.name.as_str() {
                 "create" => commands::create::run(&ctx, &command).await,
                 "list" => commands::list::run(&ctx, &command).await,
@@ -54,11 +65,9 @@ impl EventHandler for SerenityHandler {
                     .color(EMBED_COLOR);
 
                 if let Err(err) = command
-                    .create_response(
+                    .edit_response(
                         &ctx.http,
-                        serenity::builder::CreateInteractionResponse::Message(
-                            CreateInteractionResponseMessage::new().add_embed(embed),
-                        ),
+                        serenity::builder::EditInteractionResponse::new().add_embed(embed),
                     )
                     .await
                 {
@@ -69,12 +78,11 @@ impl EventHandler for SerenityHandler {
             if component.data.custom_id.starts_with("page-") {
                 button_list(ctx, component).await;
             }
-        } else if let Interaction::Autocomplete(command) = interaction {
-            if command.data.name == "create" {
-                if let Err(e) = autocomplete_version(ctx, command).await {
-                    log::error!("{e}");
-                }
-            }
+        } else if let Interaction::Autocomplete(command) = interaction
+            && command.data.name == "create"
+            && let Err(e) = autocomplete_version(ctx, command).await
+        {
+            log::error!("{e}");
         }
     }
 }

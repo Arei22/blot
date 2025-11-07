@@ -14,7 +14,7 @@ pub struct SerenityHandler;
 #[async_trait]
 impl EventHandler for SerenityHandler {
     async fn ready(&self, ctx: Context, _ready: Ready) {
-        log::info!("bot-mc is connected!");
+        log::info!("blot is connected!");
 
         let guild_id = GuildId::new(parse_key::<u64>("DISCORD_GUILD_ID").unwrap());
 

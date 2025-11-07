@@ -1,10 +1,10 @@
 [package]
-name = "bot-mc"
-version = "0.2.3"
+name = "blot"
+version = "0.2.5"
 authors = ["Arei2<contact@arei2.fr>"]
 edition = "2024"
 description = "A Discord bot to create and manage minecraft server."
-repository = "https://github.com/arei22/bot-mc"
+repository = "https://github.com/arei22/blot"
 publish = false
 
 [profile.release]

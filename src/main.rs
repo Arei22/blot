@@ -1,7 +1,7 @@
-use bot_mc::client::Client;
-use bot_mc::database::postgresql::run_migration;
-use bot_mc::util::logger::init as init_logger;
-use bot_mc::util::{exit_if_keys_not_exist, wait_for_shutdown_signal};
+use blot::client::Client;
+use blot::database::postgresql::run_migration;
+use blot::util::logger::init as init_logger;
+use blot::util::{exit_if_keys_not_exist, wait_for_shutdown_signal};
 use std::error::Error;
 use tokio::task::JoinHandle;
 
@@ -19,7 +19,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         "ADMIN_PLAYER",
     ]);
 
-    log::info!("Start bot-mc...");
+    log::info!("Start blot...");
 
     run_migration().await;
 

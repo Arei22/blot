@@ -159,8 +159,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "bot-mc"
-version = "0.2.3"
+name = "blot"
+version = "0.2.5"
 dependencies = [
  "chrono",
  "diesel",

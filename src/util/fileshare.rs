@@ -21,7 +21,12 @@ pub async fn generate_upload() -> Result<String, ClientError> {
         return Ok(response.text().await?);
     }
 
-    Err(ClientError::Other("unable to generate upload".to_owned()))
+    let status = response.status();
+    let body = &response.text().await?;
+
+    log::error!("unable to get upload : {} :\n{}", status, body);
+
+    Err(ClientError::Other("unable to get upload".to_string()))
 }
 
 pub async fn get_upload(uuid: String, id: i64) -> Result<(), ClientError> {
@@ -76,5 +81,10 @@ pub async fn get_upload(uuid: String, id: i64) -> Result<(), ClientError> {
         return Ok(());
     }
 
-    Err(ClientError::Other("unable to get upload".to_owned()))
+    let status = response.status();
+    let body = &response.text().await?;
+
+    log::error!("unable to get upload : {} :\n{}", status, body);
+
+    Err(ClientError::Other("unable to get upload".to_string()))
 }

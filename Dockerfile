@@ -2,7 +2,7 @@
 # Necessary dependencies to build blot
 FROM rust:alpine AS build
 
-LABEL version="0.2.3" maintainer="Arei2<contact@arei2.fr>"
+LABEL version="1.0.0" maintainer="Arei2<contact@arei2.fr>"
 
 RUN apk update && apk upgrade
 RUN apk add --no-cache \

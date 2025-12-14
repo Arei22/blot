@@ -1,6 +1,6 @@
 [package]
 name = "blot"
-version = "0.2.5"
+version = "1.0.0"
 authors = ["Arei2<contact@arei2.fr>"]
 edition = "2024"
 description = "A Discord bot to create and manage minecraft server."
@@ -20,7 +20,7 @@ tokio = { version = "1.47.1", default-features = false, features = [
     "rt",
     "process",
 ] }
-diesel-async = { version = "0.6.1", features = [
+diesel-async = { version = "0.7.4", features = [
     "postgres",
     "bb8",
     "async-connection-wrapper",
@@ -30,14 +30,15 @@ serenity = { version = "0.12.4", features = [
     "framework",
     "gateway",
     "model",
+    "collector",
 ] }
-diesel = { version = "2.2.12", features = ["postgres", "uuid"] }
-reqwest = { version = "0.12.23", features = ["json"] }
+diesel = { version = "2.3.4", features = ["postgres", "uuid"] }
+reqwest = { version = "0.12.25", features = ["json"] }
 serde = { version = "1.0.225", features = ["derive"] }
-diesel_migrations = "2.2.0"
+diesel_migrations = "2.3.1"
 env_logger = "0.11.8"
 dotenvy = "0.15.7"
 chrono = "0.4.42"
-log = "0.4.28"
+log = "0.4.29"
 serde_yml = "0.0.12"
 serde_json = "1.0.145"

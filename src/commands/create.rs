@@ -1,4 +1,5 @@
 use std::path::Path;
+use std::time::Duration;
 
 use crate::client::error::ClientError;
 use crate::commands::extract_bool_optional;
@@ -17,6 +18,7 @@ use diesel_async::RunQueryDsl;
 use serde_yml::Mapping;
 use serde_yml::Value;
 use serenity::all::CommandInteraction;
+use serenity::all::MessageCollector;
 use serenity::all::{CommandOptionType, Context, CreateCommand, CreateCommandOption, CreateEmbed};
 use tokio::fs;
 
@@ -25,6 +27,7 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) -> Result<(), Clie
     let ver = extract_str_optional("version", &command.data.options())?;
     let difficulty_option = extract_str_optional("difficulty", &command.data.options())?;
     let map = extract_bool_optional("map", &command.data.options())?.unwrap_or(false);
+    let modpack = extract_str_optional("modpack", &command.data.options())?;
 
     let pool: PgPool = get_pool_from_ctx(ctx).await?;
     let mut conn: PgPooled = pool.get().await?;
@@ -185,6 +188,77 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) -> Result<(), Clie
         );
     }
 
+    if let Some(mp) = modpack {
+        env.insert(
+            Value::String("MODPACK_PLATFORM".into()),
+            Value::String("AUTO_CURSEFORGE".into()),
+        );
+        env.insert(
+            Value::String("CF_API_KEY".into()),
+            Value::String(parse_key("CF_API_KEY")?),
+        );
+        if mp == "cf" {
+            let embed = CreateEmbed::new()
+                .description(format!("**Veuillez écrire le lien du modpack**"))
+                .color(EMBED_COLOR);
+
+            command
+                .edit_response(
+                    &ctx.http,
+                    serenity::builder::EditInteractionResponse::new().add_embed(embed),
+                )
+                .await?;
+
+            let response = MessageCollector::new(ctx)
+                .author_id(command.user.id)
+                .channel_id(command.channel_id)
+                .timeout(Duration::from_secs(60))
+                .await;
+
+            if let Some(url) = response {
+                env.insert(
+                    Value::String("CF_PAGE_URL".into()),
+                    Value::String(url.content.clone()),
+                );
+
+                url.delete(&ctx.http).await?;
+            } else {
+                return Err(ClientError::Other(format!(
+                    "Vous n'avez pas écris de lien."
+                )));
+            }
+        } else {
+            let uuid = generate_upload().await?;
+
+            let doup = parse_key::<String>("DOUP_URL")?;
+
+            let embed = CreateEmbed::new()
+                .description(format!(
+                    "**Veuillez upload le modpack à {doup}/upload?uuid={uuid}**"
+                ))
+                .color(EMBED_COLOR);
+
+            command
+                .edit_response(
+                    &ctx.http,
+                    serenity::builder::EditInteractionResponse::new().add_embed(embed),
+                )
+                .await?;
+
+            get_upload(uuid.clone(), id).await?;
+
+            env.insert(
+                Value::String("CF_SLUG".into()),
+                Value::String("custom".into()),
+            );
+
+            env.insert(
+                Value::String("CF_MODPACK_ZIP".into()),
+                Value::String(format!("/world/{uuid}")),
+            );
+        }
+    }
+
     mc.insert(Value::String("environment".into()), Value::Mapping(env));
 
     services.insert(Value::String("mc".into()), Value::Mapping(mc));
@@ -259,4 +333,11 @@ pub fn register() -> CreateCommand {
         ))
         .description_localized("en-US", "Add a map?")
         .description_localized("en-GB", "Add a map?")
+        .add_option(
+            CreateCommandOption::new(CommandOptionType::String, "modpack", "Mettre un modpack ?")
+                .add_string_choice("Curseforge_URL", "cf")
+                .add_string_choice("File", "file"),
+        )
+        .description_localized("en-US", "Add a modpack?")
+        .description_localized("en-GB", "Add a modpack?")
 }

@@ -55,6 +55,7 @@ services:
       MAX_MEMORY: 20G
       DOUP_URL: URL
       TOKEN: token
+      CF_API_KEY: \$\$aa\$\$aa\$\$aaaaaaaaaa...
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     depends_on:

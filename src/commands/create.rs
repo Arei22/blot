@@ -126,7 +126,7 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) -> Result<(), Clie
         Value::String("volumes".into()),
         Value::Sequence(vec![
             Value::String("./data:/data".into()),
-            Value::String(".:/world".to_string()),
+            Value::String("./world:/world".to_string()),
         ]),
     );
 
@@ -160,7 +160,7 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) -> Result<(), Clie
 
     let dir = Path::new("worlds").join(id.to_string());
 
-    fs::create_dir_all(&dir).await?;
+    fs::create_dir_all(dir.join("world")).await?;
 
     if map {
         let uuid = generate_upload().await?;

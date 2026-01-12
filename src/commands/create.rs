@@ -122,11 +122,24 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) -> Result<(), Clie
         Value::String(parse_key::<String>("MAX_MEMORY")?),
     );
 
+    let id: i64 = insert_into(servers_dsl::servers)
+        .values((
+            servers_dsl::name.eq(&name),
+            servers_dsl::version.eq(ver.map_or_else(|| "latest", |version| version).to_string()),
+            servers_dsl::difficulty
+                .eq(difficulty_option.map_or_else(|| "easy", |difficulty| difficulty)),
+            servers_dsl::port.eq(port),
+            servers_dsl::started.eq(false),
+        ))
+        .returning(servers_dsl::id)
+        .get_result(&mut conn)
+        .await?;
+
     mc.insert(
         Value::String("volumes".into()),
         Value::Sequence(vec![
-            Value::String("./data:/data".into()),
-            Value::String("./world:/world".to_string()),
+            Value::String(format!("/worlds/{id}/data:/data")),
+            Value::String(format!("/worlds/{id}/world:/world")),
         ]),
     );
 
@@ -144,19 +157,6 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) -> Result<(), Clie
     healthcheck.insert(Value::String("retries".into()), Value::String("20".into()));
 
     mc.insert("healthcheck".into(), Value::Mapping(healthcheck));
-
-    let id: i64 = insert_into(servers_dsl::servers)
-        .values((
-            servers_dsl::name.eq(&name),
-            servers_dsl::version.eq(ver.map_or_else(|| "latest", |version| version).to_string()),
-            servers_dsl::difficulty
-                .eq(difficulty_option.map_or_else(|| "easy", |difficulty| difficulty)),
-            servers_dsl::port.eq(port),
-            servers_dsl::started.eq(false),
-        ))
-        .returning(servers_dsl::id)
-        .get_result(&mut conn)
-        .await?;
 
     let dir = Path::new("worlds").join(id.to_string());
 

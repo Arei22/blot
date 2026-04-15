@@ -75,7 +75,10 @@ pub async fn get_upload(uuid: String, id: i64) -> Result<(), ClientError> {
 
     if response.status().is_success() {
         let bytes = response.bytes().await?;
-        let file_path = Path::new("worlds").join(id.to_string()).join(uuid);
+        let file_path = Path::new("worlds")
+            .join(id.to_string())
+            .join("world")
+            .join(uuid);
         let mut file = File::create(&file_path).await?;
         file.write_all(&bytes).await?;
         return Ok(());

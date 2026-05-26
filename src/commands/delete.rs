@@ -12,6 +12,7 @@ use serenity::all::{
     CommandInteraction, CommandOptionType, Context, CreateCommand, CreateCommandOption, CreateEmbed,
 };
 use tokio::fs;
+use tokio::process::Command;
 
 pub async fn run(ctx: &Context, command: &CommandInteraction) -> Result<(), ClientError> {
     let name = extract_str("name", &command.data.options())?.to_lowercase();
@@ -57,6 +58,18 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) -> Result<(), Clie
         .filter(servers_dsl::name.eq(&name))
         .get_result(&mut conn)
         .await?;
+
+    let r = Command::new("docker")
+        .args(["compose", "rm", "-f"])
+        .current_dir(Path::new("worlds").join(id.to_string()))
+        .status()
+        .await?;
+
+    if !r.success() {
+        return Err(ClientError::Other(
+            "Erreur au démarrage du serv".to_string(),
+        ));
+    }
 
     fs::remove_dir_all(Path::new("worlds").join(id.to_string())).await?;
 

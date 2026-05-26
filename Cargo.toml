@@ -13,14 +13,14 @@ strip = true
 lto = true
 
 [dependencies]
-tokio = { version = "1.47.1", default-features = false, features = [
+tokio = { version = "1.52.0", default-features = false, features = [
     "macros",
     "rt-multi-thread",
     "signal",
     "rt",
     "process",
 ] }
-diesel-async = { version = "0.7.4", features = [
+diesel-async = { version = "0.8.0", features = [
     "postgres",
     "bb8",
     "async-connection-wrapper",
@@ -33,7 +33,7 @@ serenity = { version = "0.12.4", features = [
     "collector",
 ] }
 diesel = { version = "2.3.4", features = ["postgres", "uuid"] }
-reqwest = { version = "0.12.25", features = ["json"] }
+reqwest = { version = "0.13.2", features = ["json"] }
 serde = { version = "1.0.225", features = ["derive"] }
 diesel_migrations = "2.3.1"
 env_logger = "0.11.8"

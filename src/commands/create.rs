@@ -138,8 +138,8 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) -> Result<(), Clie
     mc.insert(
         Value::String("volumes".into()),
         Value::Sequence(vec![
-            Value::String(format!("/worlds/{id}/data:/data")),
-            Value::String(format!("/worlds/{id}/world:/world")),
+            Value::String(format!("./data:/data")),
+            Value::String(format!("./world:/world")),
         ]),
     );
 

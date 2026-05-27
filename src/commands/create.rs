@@ -28,6 +28,7 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) -> Result<(), Clie
     let difficulty_option = extract_str_optional("difficulty", &command.data.options())?;
     let map = extract_bool_optional("map", &command.data.options())?.unwrap_or(false);
     let modpack = extract_str_optional("modpack", &command.data.options())?;
+    let crack = extract_bool_optional("crack", &command.data.options())?.unwrap_or(false);
 
     let pool: PgPool = get_pool_from_ctx(ctx).await?;
     let mut conn: PgPooled = pool.get().await?;
@@ -259,6 +260,10 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) -> Result<(), Clie
         }
     }
 
+    if crack {
+        env.insert(Value::String("ONLINE_MODE".into()), Value::Bool(false));
+    }
+
     mc.insert(Value::String("environment".into()), Value::Mapping(env));
 
     services.insert(Value::String("mc".into()), Value::Mapping(mc));
@@ -340,4 +345,11 @@ pub fn register() -> CreateCommand {
         )
         .description_localized("en-US", "Add a modpack?")
         .description_localized("en-GB", "Add a modpack?")
+        .add_option(CreateCommandOption::new(
+            CommandOptionType::Boolean,
+            "crack",
+            "Ouvrir au crack ?",
+        ))
+        .description_localized("en-US", "Open to Cracked?")
+        .description_localized("en-GB", "Open to Cracked?")
 }

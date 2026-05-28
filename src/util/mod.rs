@@ -8,7 +8,7 @@ use tokio::signal::unix::SignalKind;
 pub mod fileshare;
 pub mod logger;
 
-pub const EMBED_COLOR: u64 = 14423107;
+pub const EMBED_COLOR: u64 = 6202624;
 
 #[inline]
 pub async fn wait_for_shutdown_signal() {

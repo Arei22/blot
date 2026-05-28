@@ -110,10 +110,7 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) -> Result<(), Clie
     }
 
     let embed = CreateEmbed::new()
-        .description(format!(
-            "**Le serveur ``{}`` a bien été créé !**",
-            args.name
-        ))
+        .description(format!("**Serveur ``{}`` créé !**", args.name))
         .color(EMBED_COLOR);
 
     command
@@ -139,42 +136,30 @@ async fn process(
 
     let mut mc = Mapping::new();
     if let Some(ver) = args.ver {
-        mc.insert(
-            Value::String("image".into()),
-            Value::String(docker_image_for(ver).to_owned()),
-        );
+        mc.insert("image", Value::String(docker_image_for(ver).to_owned()));
     } else {
-        mc.insert(
-            Value::String("image".into()),
-            Value::String("itzg/minecraft-server".into()),
-        );
+        mc.insert("image", Value::String("itzg/minecraft-server".into()));
     }
 
-    mc.insert(Value::String("tty".into()), Value::Bool(true));
-    mc.insert(Value::String("stdin_open".into()), Value::Bool(true));
+    mc.insert("tty", Value::Bool(true));
+    mc.insert("stdin_open", Value::Bool(true));
     mc.insert(
-        Value::String("ports".into()),
+        "ports",
         Value::Sequence(vec![Value::String(format!("{port}:25565"))]),
     );
 
     let mut env = Mapping::new();
 
-    env.insert(Value::String("EULA".into()), Value::String("TRUE".into()));
+    env.insert("EULA", Value::String("TRUE".into()));
 
-    env.insert(
-        Value::String("OPS".into()),
-        Value::String(parse_key::<String>("ADMIN_PLAYER")?),
-    );
+    env.insert("OPS", Value::String(parse_key::<String>("ADMIN_PLAYER")?));
 
     if let Some(version) = args.ver {
         let json = fs::read_to_string("versions.json").await?;
         let versions: Vec<String> = serde_json::from_str(&json)?;
 
         if versions.iter().any(|e| e == version) {
-            env.insert(
-                Value::String("VERSION".into()),
-                Value::String(version.into()),
-            );
+            env.insert("VERSION", Value::String(version.into()));
         } else {
             return Err(ClientError::Other(format!(
                 "{version} n'est pas une version valide."
@@ -183,19 +168,16 @@ async fn process(
     }
 
     if let Some(difficulty) = args.difficulty_option {
-        env.insert(
-            Value::String("DIFFICULTY".into()),
-            Value::String(difficulty.into()),
-        );
+        env.insert("DIFFICULTY", Value::String(difficulty.into()));
     }
 
     env.insert(
-        Value::String("MAX_MEMORY".into()),
+        "MAX_MEMORY",
         Value::String(parse_key::<String>("MAX_MEMORY")?),
     );
 
     mc.insert(
-        Value::String("volumes".into()),
+        "volumes",
         Value::Sequence(vec![
             Value::String("./data:/data".to_string()),
             Value::String("./world:/world".to_string()),
@@ -204,18 +186,12 @@ async fn process(
 
     let mut healthcheck = Mapping::new();
 
-    healthcheck.insert(
-        Value::String("test".into()),
-        Value::String("mc-health".into()),
-    );
-    healthcheck.insert(
-        Value::String("start_period".into()),
-        Value::String("1m".into()),
-    );
-    healthcheck.insert(Value::String("interval".into()), Value::String("5s".into()));
-    healthcheck.insert(Value::String("retries".into()), Value::String("20".into()));
+    healthcheck.insert("test", Value::String("mc-health".into()));
+    healthcheck.insert("start_period", Value::String("1m".into()));
+    healthcheck.insert("interval", Value::String("5s".into()));
+    healthcheck.insert("retries", Value::String("20".into()));
 
-    mc.insert("healthcheck".into(), Value::Mapping(healthcheck));
+    mc.insert("healthcheck", Value::Mapping(healthcheck));
 
     if args.map {
         let uuid = generate_upload().await?;
@@ -237,21 +213,12 @@ async fn process(
 
         get_upload(uuid.clone(), id).await?;
 
-        env.insert(
-            Value::String("WORLD".into()),
-            Value::String(format!("/world/{uuid}")),
-        );
+        env.insert("WORLD", Value::String(format!("/world/{uuid}")));
     }
 
     if let Some(mp) = args.modpack {
-        env.insert(
-            Value::String("MODPACK_PLATFORM".into()),
-            Value::String("AUTO_CURSEFORGE".into()),
-        );
-        env.insert(
-            Value::String("CF_API_KEY".into()),
-            Value::String(parse_key("CF_API_KEY")?),
-        );
+        env.insert("MODPACK_PLATFORM", Value::String("AUTO_CURSEFORGE".into()));
+        env.insert("CF_API_KEY", Value::String(parse_key("CF_API_KEY")?));
         if mp == "cf" {
             let embed = CreateEmbed::new()
                 .description("**Veuillez écrire le lien du modpack**".to_string())
@@ -271,10 +238,7 @@ async fn process(
                 .await;
 
             if let Some(url) = response {
-                env.insert(
-                    Value::String("CF_PAGE_URL".into()),
-                    Value::String(url.content.clone()),
-                );
+                env.insert("CF_PAGE_URL", Value::String(url.content.clone()));
 
                 url.delete(&ctx.http).await?;
             } else {
@@ -302,38 +266,26 @@ async fn process(
 
             get_upload(uuid.clone(), id).await?;
 
-            env.insert(
-                Value::String("CF_SLUG".into()),
-                Value::String("custom".into()),
-            );
+            env.insert("CF_SLUG", Value::String("custom".into()));
 
-            env.insert(
-                Value::String("CF_MODPACK_ZIP".into()),
-                Value::String(format!("/world/{uuid}")),
-            );
+            env.insert("CF_MODPACK_ZIP", Value::String(format!("/world/{uuid}")));
         }
     }
 
     if args.crack {
-        env.insert(Value::String("ONLINE_MODE".into()), Value::Bool(false));
+        env.insert("ONLINE_MODE", Value::Bool(false));
     }
 
-    env.insert(
-        Value::String("ENABLE_COMMAND_BLOCK".into()),
-        Value::Bool(true),
-    );
+    env.insert("ENABLE_COMMAND_BLOCK", Value::Bool(true));
 
-    env.insert(
-        Value::String("SPAWN_PROTECTION".into()),
-        Value::Number(0.into()),
-    );
+    env.insert("SPAWN_PROTECTION", Value::Number(0.into()));
 
-    mc.insert(Value::String("environment".into()), Value::Mapping(env));
+    mc.insert("environment", Value::Mapping(env));
 
-    services.insert(Value::String("mc".into()), Value::Mapping(mc));
+    services.insert("mc", Value::Mapping(mc));
 
     let mut root = Mapping::new();
-    root.insert(Value::String("services".into()), Value::Mapping(services));
+    root.insert("services", Value::Mapping(services));
 
     let yml_str = serde_yml::to_string(&root)?;
 

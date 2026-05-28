@@ -75,12 +75,12 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) -> Result<(), Clie
     let ip = parse_key::<String>("IP")?;
 
     let servers_strings: Vec<String> = servers.iter().map(|server| format!(
-            "* **{}**\n  * **Adresse** : ``{}:{}``\n  * **Version** : ``{}``\n  * **Difficulté** : ``{}``\n  * **Démarré** : ``{}``",
+            "* **{}**\n  * **Adresse** : ``{}:{}``\n  * **Version** : ``{}``\n  * **Crack** : ``{}``\n  * **Démarré** : ``{}``",
             server.name,
             ip,
             server.port,
             server.version,
-            server.crack,
+            if server.crack {"oui"} else {"non"},
             if server.started {"oui"} else {"non"},
         )).collect();
 
@@ -138,12 +138,12 @@ pub async fn get_page(
     let ip = parse_key::<String>("IP")?;
 
     let servers_strings: Vec<String> = servers.iter().map(|server| format!(
-            "* **{}**\n  * **Adresse** : ``{}:{}``\n  * **Version** : ``{}``\n  * **Difficulté** : ``{}``\n  * **Démarré** : ``{}``",
+            "* **{}**\n  * **Adresse** : ``{}:{}``\n  * **Version** : ``{}``\n  * **Crack** : ``{}``\n  * **Démarré** : ``{}``",
             server.name,
             ip,
             server.port,
             server.version,
-            server.crack,
+            if server.started {"oui"} else {"non"},
             if server.started {"oui"} else {"non"},
         )).collect();
 

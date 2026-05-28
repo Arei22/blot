@@ -16,7 +16,7 @@ const ELEMENT_PER_PAGE: u64 = 4;
 struct ServersList {
     pub name: String,
     pub version: String,
-    pub difficulty: String,
+    pub crack: bool,
     pub port: i64,
     pub started: bool,
 }
@@ -42,7 +42,7 @@ async fn get_servers(
         .select((
             servers_dsl::name,
             servers_dsl::version,
-            servers_dsl::difficulty,
+            servers_dsl::crack,
             servers_dsl::port,
             servers_dsl::started,
         ))
@@ -80,7 +80,7 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) -> Result<(), Clie
             ip,
             server.port,
             server.version,
-            server.difficulty,
+            server.crack,
             if server.started {"oui"} else {"non"},
         )).collect();
 
@@ -143,7 +143,7 @@ pub async fn get_page(
             ip,
             server.port,
             server.version,
-            server.difficulty,
+            server.crack,
             if server.started {"oui"} else {"non"},
         )).collect();
 

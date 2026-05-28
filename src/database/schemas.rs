@@ -3,7 +3,7 @@ diesel::table! {
         id -> BigSerial,
         name -> Text,
         version -> Text,
-        difficulty -> Text,
+        crack -> Bool,
         port -> BigInt,
         started -> Bool
     }

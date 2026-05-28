@@ -8,7 +8,7 @@ pub struct Servers {
     pub id: i64,
     pub name: String,
     pub version: String,
-    pub difficulty: String,
+    pub crack: bool,
     pub port: i64,
     pub started: bool,
 }

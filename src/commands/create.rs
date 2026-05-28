@@ -12,6 +12,7 @@ use crate::util::fileshare::generate_upload;
 use crate::util::fileshare::get_upload;
 use crate::util::parse_key;
 use crate::util::{EMBED_COLOR, get_pool_from_ctx};
+use diesel::delete;
 use diesel::dsl::exists;
 use diesel::{ExpressionMethods, QueryDsl, insert_into};
 use diesel_async::RunQueryDsl;
@@ -22,19 +23,41 @@ use serenity::all::MessageCollector;
 use serenity::all::{CommandOptionType, Context, CreateCommand, CreateCommandOption, CreateEmbed};
 use tokio::fs;
 
+pub struct Args<'a> {
+    name: String,
+    ver: Option<&'a str>,
+    difficulty_option: Option<&'a str>,
+    map: bool,
+    modpack: Option<&'a str>,
+    crack: bool,
+}
+
 pub async fn run(ctx: &Context, command: &CommandInteraction) -> Result<(), ClientError> {
-    let name = extract_str("name", &command.data.options())?.to_lowercase();
-    let ver = extract_str_optional("version", &command.data.options())?;
-    let difficulty_option = extract_str_optional("difficulty", &command.data.options())?;
-    let map = extract_bool_optional("map", &command.data.options())?.unwrap_or(false);
-    let modpack = extract_str_optional("modpack", &command.data.options())?;
-    let crack = extract_bool_optional("crack", &command.data.options())?.unwrap_or(false);
+    command
+        .edit_response(
+            &ctx.http,
+            serenity::builder::EditInteractionResponse::new().add_embed(
+                CreateEmbed::new()
+                    .description("**Création d'un serveur.**")
+                    .color(EMBED_COLOR),
+            ),
+        )
+        .await?;
+
+    let args = Args {
+        name: extract_str("name", &command.data.options())?.to_lowercase(),
+        ver: extract_str_optional("version", &command.data.options())?,
+        difficulty_option: extract_str_optional("difficulty", &command.data.options())?,
+        map: extract_bool_optional("map", &command.data.options())?.unwrap_or(false),
+        modpack: extract_str_optional("modpack", &command.data.options())?,
+        crack: extract_bool_optional("crack", &command.data.options())?.unwrap_or(false),
+    };
 
     let pool: PgPool = get_pool_from_ctx(ctx).await?;
     let mut conn: PgPooled = pool.get().await?;
 
     let serv_exist: bool = diesel::select(exists(
-        servers_dsl::servers.filter(servers_dsl::name.eq(&name)),
+        servers_dsl::servers.filter(servers_dsl::name.eq(&args.name)),
     ))
     .get_result(&mut conn)
     .await?;
@@ -61,24 +84,72 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) -> Result<(), Clie
         return Err(ClientError::OtherStatic("Pas de port disponible."));
     }
 
+    let id: i64 = insert_into(servers_dsl::servers)
+        .values((
+            servers_dsl::name.eq(&args.name),
+            servers_dsl::version.eq(args.ver.unwrap_or("latest").to_string()),
+            servers_dsl::crack.eq(args.crack),
+            servers_dsl::port.eq(port),
+            servers_dsl::started.eq(false),
+        ))
+        .returning(servers_dsl::id)
+        .get_result(&mut conn)
+        .await?;
+
+    fs::create_dir_all(Path::new("worlds").join(id.to_string()).join("world")).await?;
+
+    if let Err(e) = process(port, id, &args, ctx, command).await {
+        delete(servers_dsl::servers)
+            .filter(servers_dsl::name.eq(args.name))
+            .execute(&mut pool.get().await?)
+            .await?;
+
+        fs::remove_dir_all(Path::new("worlds").join(id.to_string())).await?;
+
+        return Err(e);
+    }
+
+    let embed = CreateEmbed::new()
+        .description(format!(
+            "**Le serveur ``{}`` a bien été créé !**",
+            args.name
+        ))
+        .color(EMBED_COLOR);
+
     command
         .edit_response(
             &ctx.http,
-            serenity::builder::EditInteractionResponse::new().add_embed(
-                CreateEmbed::new()
-                    .description("**Création d'un serveur.**")
-                    .color(EMBED_COLOR),
-            ),
+            serenity::builder::EditInteractionResponse::new().add_embed(embed),
         )
         .await?;
 
+    log::info!("Created \"{}\" server!", args.name);
+
+    Ok(())
+}
+
+async fn process(
+    port: i64,
+    id: i64,
+    args: &Args<'_>,
+    ctx: &Context,
+    command: &CommandInteraction,
+) -> Result<(), ClientError> {
     let mut services = Mapping::new();
 
     let mut mc = Mapping::new();
-    mc.insert(
-        Value::String("image".into()),
-        Value::String("itzg/minecraft-server".into()),
-    );
+    if let Some(ver) = args.ver {
+        mc.insert(
+            Value::String("image".into()),
+            Value::String(docker_image_for(ver).to_owned()),
+        );
+    } else {
+        mc.insert(
+            Value::String("image".into()),
+            Value::String("itzg/minecraft-server".into()),
+        );
+    }
+
     mc.insert(Value::String("tty".into()), Value::Bool(true));
     mc.insert(Value::String("stdin_open".into()), Value::Bool(true));
     mc.insert(
@@ -95,7 +166,7 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) -> Result<(), Clie
         Value::String(parse_key::<String>("ADMIN_PLAYER")?),
     );
 
-    if let Some(version) = ver {
+    if let Some(version) = args.ver {
         let json = fs::read_to_string("versions.json").await?;
         let versions: Vec<String> = serde_json::from_str(&json)?;
 
@@ -111,7 +182,7 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) -> Result<(), Clie
         }
     }
 
-    if let Some(difficulty) = difficulty_option {
+    if let Some(difficulty) = args.difficulty_option {
         env.insert(
             Value::String("DIFFICULTY".into()),
             Value::String(difficulty.into()),
@@ -123,24 +194,11 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) -> Result<(), Clie
         Value::String(parse_key::<String>("MAX_MEMORY")?),
     );
 
-    let id: i64 = insert_into(servers_dsl::servers)
-        .values((
-            servers_dsl::name.eq(&name),
-            servers_dsl::version.eq(ver.map_or_else(|| "latest", |version| version).to_string()),
-            servers_dsl::difficulty
-                .eq(difficulty_option.map_or_else(|| "easy", |difficulty| difficulty)),
-            servers_dsl::port.eq(port),
-            servers_dsl::started.eq(false),
-        ))
-        .returning(servers_dsl::id)
-        .get_result(&mut conn)
-        .await?;
-
     mc.insert(
         Value::String("volumes".into()),
         Value::Sequence(vec![
-            Value::String(format!("./data:/data")),
-            Value::String(format!("./world:/world")),
+            Value::String("./data:/data".to_string()),
+            Value::String("./world:/world".to_string()),
         ]),
     );
 
@@ -159,11 +217,7 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) -> Result<(), Clie
 
     mc.insert("healthcheck".into(), Value::Mapping(healthcheck));
 
-    let dir = Path::new("worlds").join(id.to_string());
-
-    fs::create_dir_all(dir.join("world")).await?;
-
-    if map {
+    if args.map {
         let uuid = generate_upload().await?;
 
         let doup = parse_key::<String>("DOUP_URL")?;
@@ -189,7 +243,7 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) -> Result<(), Clie
         );
     }
 
-    if let Some(mp) = modpack {
+    if let Some(mp) = args.modpack {
         env.insert(
             Value::String("MODPACK_PLATFORM".into()),
             Value::String("AUTO_CURSEFORGE".into()),
@@ -200,7 +254,7 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) -> Result<(), Clie
         );
         if mp == "cf" {
             let embed = CreateEmbed::new()
-                .description(format!("**Veuillez écrire le lien du modpack**"))
+                .description("**Veuillez écrire le lien du modpack**".to_string())
                 .color(EMBED_COLOR);
 
             command
@@ -224,9 +278,9 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) -> Result<(), Clie
 
                 url.delete(&ctx.http).await?;
             } else {
-                return Err(ClientError::Other(format!(
-                    "Vous n'avez pas écris de lien."
-                )));
+                return Err(ClientError::Other(
+                    "Vous n'avez pas écris de lien.".to_string(),
+                ));
             }
         } else {
             let uuid = generate_upload().await?;
@@ -260,9 +314,19 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) -> Result<(), Clie
         }
     }
 
-    if crack {
+    if args.crack {
         env.insert(Value::String("ONLINE_MODE".into()), Value::Bool(false));
     }
+
+    env.insert(
+        Value::String("ENABLE_COMMAND_BLOCK".into()),
+        Value::Bool(true),
+    );
+
+    env.insert(
+        Value::String("SPAWN_PROTECTION".into()),
+        Value::Number(0.into()),
+    );
 
     mc.insert(Value::String("environment".into()), Value::Mapping(env));
 
@@ -273,22 +337,35 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) -> Result<(), Clie
 
     let yml_str = serde_yml::to_string(&root)?;
 
-    fs::write(dir.join("docker-compose.yml"), yml_str).await?;
-
-    let embed = CreateEmbed::new()
-        .description(format!("**Le serveur ``{name}`` a bien été créé !**"))
-        .color(EMBED_COLOR);
-
-    command
-        .edit_response(
-            &ctx.http,
-            serenity::builder::EditInteractionResponse::new().add_embed(embed),
-        )
-        .await?;
-
-    log::info!("Created \"{name}\" server!");
+    fs::write(
+        Path::new("worlds")
+            .join(id.to_string())
+            .join("docker-compose.yml"),
+        yml_str,
+    )
+    .await?;
 
     Ok(())
+}
+
+fn docker_image_for(version: &str) -> &'static str {
+    let parts: Vec<u32> = version.split('.').filter_map(|s| s.parse().ok()).collect();
+
+    let minor = *parts.get(1).unwrap_or(&0);
+
+    match minor {
+        0..=16 => "itzg/minecraft-server:java8",
+        17..=20 => {
+            let patch = *parts.get(2).unwrap_or(&0);
+
+            if minor == 20 && patch >= 5 {
+                "itzg/minecraft-server:java21"
+            } else {
+                "itzg/minecraft-server:java17"
+            }
+        }
+        _ => "itzg/minecraft-server:java21",
+    }
 }
 
 pub fn register() -> CreateCommand {

@@ -4,6 +4,7 @@ use crate::client::error::ClientError;
 use crate::commands::extract_str;
 use crate::database::postgresql::{PgPool, PgPooled};
 use crate::database::schemas::servers::dsl as servers_dsl;
+use crate::util::data_types::ServNames;
 use crate::util::{EMBED_COLOR, get_pool_from_ctx};
 use diesel::dsl::exists;
 use diesel::{ExpressionMethods, QueryDsl, delete};
@@ -78,6 +79,14 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) -> Result<(), Clie
         .execute(&mut pool.get().await?)
         .await?;
 
+    {
+        let mut data = ctx.data.write().await;
+
+        if let Some(strings) = data.get_mut::<ServNames>() {
+            strings.retain(|s| *s != name);
+        }
+    }
+
     log::info!("Deleted server : {name}!");
 
     let embed2 = CreateEmbed::new()
@@ -109,6 +118,7 @@ pub fn register() -> CreateCommand {
             .description_localized("en-US", "The name of the server to delete.")
             .description_localized("en-GB", "The name of the server to delete.")
             .required(true)
-            .max_length(25),
+            .max_length(25)
+            .set_autocomplete(true),
         )
 }

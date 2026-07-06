@@ -5,6 +5,7 @@ use serenity::all::Context;
 use std::str::FromStr;
 use tokio::signal::unix::SignalKind;
 
+pub mod data_types;
 pub mod fileshare;
 pub mod logger;
 

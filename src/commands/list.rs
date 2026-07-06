@@ -13,7 +13,7 @@ use serenity::builder::CreateEmbed;
 const ELEMENT_PER_PAGE: u64 = 4;
 
 #[derive(Debug, Clone, Queryable)]
-struct ServersList {
+struct Server {
     pub name: String,
     pub version: String,
     pub crack: bool,
@@ -21,10 +21,7 @@ struct ServersList {
     pub started: bool,
 }
 
-async fn get_servers(
-    ctx: &Context,
-    page: &mut u64,
-) -> Result<(Vec<ServersList>, u64), ClientError> {
+async fn get_servers(ctx: &Context, page: &mut u64) -> Result<(Vec<Server>, u64), ClientError> {
     let pool: PgPool = get_pool_from_ctx(ctx).await?;
     let mut conn: PgPooled = pool.get().await?;
 
@@ -38,7 +35,7 @@ async fn get_servers(
     }
 
     #[allow(clippy::cast_possible_wrap)]
-    let servers: Vec<ServersList> = servers_dsl::servers
+    let servers: Vec<Server> = servers_dsl::servers
         .select((
             servers_dsl::name,
             servers_dsl::version,
@@ -49,7 +46,7 @@ async fn get_servers(
         .limit(ELEMENT_PER_PAGE as i64)
         .offset(i64::try_from(page.saturating_sub(1) * ELEMENT_PER_PAGE)?)
         .order_by(servers_dsl::name)
-        .load::<ServersList>(&mut conn)
+        .load::<Server>(&mut conn)
         .await?;
 
     Ok((servers, (servers_count as u64).div_ceil(ELEMENT_PER_PAGE)))
@@ -143,7 +140,7 @@ pub async fn get_page(
             ip,
             server.port,
             server.version,
-            if server.started {"oui"} else {"non"},
+            if server.crack {"oui"} else {"non"},
             if server.started {"oui"} else {"non"},
         )).collect();
 

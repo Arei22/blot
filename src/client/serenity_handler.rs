@@ -1,6 +1,6 @@
 use crate::client::error::ClientError;
 use crate::commands;
-use crate::interarction::autocomplete_version::autocomplete_version;
+use crate::interarction::autocomplete;
 use crate::interarction::button_list::button_list;
 use crate::util::{EMBED_COLOR, parse_key};
 use serenity::all::{CreateEmbed, CreateInteractionResponseMessage};
@@ -79,8 +79,7 @@ impl EventHandler for SerenityHandler {
                 button_list(ctx, component).await;
             }
         } else if let Interaction::Autocomplete(command) = interaction
-            && command.data.name == "create"
-            && let Err(e) = autocomplete_version(ctx, command).await
+            && let Err(e) = autocomplete(ctx, command).await
         {
             log::error!("{e}");
         }

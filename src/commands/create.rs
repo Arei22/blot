@@ -8,6 +8,7 @@ use crate::commands::extract_str_optional;
 use crate::database::postgresql::PgPool;
 use crate::database::postgresql::PgPooled;
 use crate::database::schemas::servers::dsl as servers_dsl;
+use crate::util::data_types::ServNames;
 use crate::util::fileshare::generate_upload;
 use crate::util::fileshare::get_upload;
 use crate::util::parse_key;
@@ -109,6 +110,17 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) -> Result<(), Clie
         return Err(e);
     }
 
+    {
+        let mut data = ctx.data.write().await;
+
+        if let Some(strings) = data.get_mut::<ServNames>() {
+            strings.push(args.name.clone());
+            strings.sort();
+        }
+    }
+
+    log::info!("Created \"{}\" server!", args.name);
+
     let embed = CreateEmbed::new()
         .description(format!("**Serveur ``{}`` créé !**", args.name))
         .color(EMBED_COLOR);
@@ -119,8 +131,6 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) -> Result<(), Clie
             serenity::builder::EditInteractionResponse::new().add_embed(embed),
         )
         .await?;
-
-    log::info!("Created \"{}\" server!", args.name);
 
     Ok(())
 }

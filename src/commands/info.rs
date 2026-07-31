@@ -51,8 +51,7 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) -> Result<(), Clie
     let ip = parse_key::<String>("IP")?;
 
     let server_string: String = format!(
-        "* **{}**\n  * **Adresse** : ``{}:{}``\n  * **Version** : ``{}``\n  * **Crack** : ``{}``\n  * **moddé** : ``{}``\n  * **créateur** : {}\n  * **Démarré** : ``{}``",
-        server.name,
+        "* **Adresse** : ``{}:{}``\n* **Version** : ``{}``\n* **Crack** : ``{}``\n* **moddé** : ``{}``\n* **créateur** : {}\n* **Démarré** : ``{}``",
         ip,
         server.port,
         server.version,
@@ -63,7 +62,7 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) -> Result<(), Clie
     );
 
     let embed = CreateEmbed::new()
-        .title("Liste des serveurs")
+        .title(format!("Informations de ``{}``", server.name))
         .description(server_string)
         .color(EMBED_COLOR);
 

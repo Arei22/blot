@@ -4,5 +4,7 @@ create table public.servers (
   version text not null,
   crack boolean not null,
   port BigInt not null,
-  started boolean
+  creator BigInt not null,
+  moded boolean not null,
+  started boolean not null
 );

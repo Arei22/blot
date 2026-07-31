@@ -27,6 +27,7 @@ impl EventHandler for SerenityHandler {
                     commands::delete::register(),
                     commands::start::register(),
                     commands::stop::register(),
+                    commands::info::register(),
                 ],
             )
             .await;
@@ -55,6 +56,7 @@ impl EventHandler for SerenityHandler {
                 "delete" => commands::delete::run(&ctx, &command).await,
                 "start" => commands::start::run(&ctx, &command).await,
                 "stop" => commands::stop::run(&ctx, &command).await,
+                "info" => commands::info::run(&ctx, &command).await,
                 _ => Err(ClientError::OtherStatic(
                     "Slash command defined at Discord but not in the bot.",
                 )),

@@ -91,6 +91,8 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) -> Result<(), Clie
             servers_dsl::version.eq(args.ver.unwrap_or("latest").to_string()),
             servers_dsl::crack.eq(args.crack),
             servers_dsl::port.eq(port),
+            servers_dsl::creator.eq(command.user.id.get().cast_signed()),
+            servers_dsl::moded.eq(args.modpack.is_some()),
             servers_dsl::started.eq(false),
         ))
         .returning(servers_dsl::id)

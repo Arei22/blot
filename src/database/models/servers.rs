@@ -10,5 +10,7 @@ pub struct Servers {
     pub version: String,
     pub crack: bool,
     pub port: i64,
+    pub creator: i64,
+    pub moded: bool,
     pub started: bool,
 }

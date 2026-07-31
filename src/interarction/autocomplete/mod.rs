@@ -12,7 +12,7 @@ pub async fn autocomplete(ctx: Context, command: CommandInteraction) -> Result<(
     match command.data.name.as_str() {
         "create" => autocomplete_version(ctx, command).await,
         "list" => Ok(()),
-        "delete" | "start" | "stop" => autocomplete_serv_name(ctx, command).await,
+        "delete" | "start" | "stop" | "info" => autocomplete_serv_name(ctx, command).await,
         _ => Err(ClientError::OtherStatic(
             "Slash command defined at Discord but not in the bot.",
         )),

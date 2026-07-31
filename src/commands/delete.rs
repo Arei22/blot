@@ -6,11 +6,12 @@ use crate::database::postgresql::{PgPool, PgPooled};
 use crate::database::schemas::servers::dsl as servers_dsl;
 use crate::util::data_types::ServNames;
 use crate::util::{EMBED_COLOR, get_pool_from_ctx};
-use diesel::dsl::exists;
+use diesel::OptionalExtension;
 use diesel::{ExpressionMethods, QueryDsl, delete};
 use diesel_async::RunQueryDsl;
 use serenity::all::{
-    CommandInteraction, CommandOptionType, Context, CreateCommand, CreateCommandOption, CreateEmbed,
+    CommandInteraction, CommandOptionType, Context, CreateCommand, CreateCommandOption,
+    CreateEmbed, Permissions,
 };
 use tokio::fs;
 use tokio::process::Command;
@@ -21,86 +22,87 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) -> Result<(), Clie
     let pool: PgPool = get_pool_from_ctx(ctx).await?;
     let mut conn: PgPooled = pool.get().await?;
 
-    let serv_exist: bool = diesel::select(exists(
-        servers_dsl::servers.filter(servers_dsl::name.eq(&name)),
-    ))
-    .get_result(&mut conn)
-    .await?;
-
-    if !serv_exist {
-        return Err(ClientError::OtherStatic("Ce serveur n'existe pas."));
-    }
-
-    let serv_started: bool = diesel::select(exists(
-        servers_dsl::servers
-            .filter(servers_dsl::started.eq(true))
-            .filter(servers_dsl::name.eq(&name)),
-    ))
-    .get_result(&mut conn)
-    .await?;
-
-    if serv_started {
-        return Err(ClientError::OtherStatic("Le serveur est lancé."));
-    }
-
-    let embed = CreateEmbed::new()
-        .description("**Supression du serveur...**".to_string())
-        .color(EMBED_COLOR);
-
-    command
-        .edit_response(
-            &ctx.http,
-            serenity::builder::EditInteractionResponse::new().add_embed(embed),
-        )
-        .await?;
-
-    let id: i64 = servers_dsl::servers
-        .select(servers_dsl::id)
+    let server: Option<(i64, i64, bool)> = servers_dsl::servers
         .filter(servers_dsl::name.eq(&name))
-        .get_result(&mut conn)
-        .await?;
+        .select((servers_dsl::id, servers_dsl::creator, servers_dsl::started))
+        .first::<(i64, i64, bool)>(&mut conn)
+        .await
+        .optional()?;
 
-    let r = Command::new("docker")
-        .args(["compose", "rm", "-f"])
-        .current_dir(Path::new("worlds").join(id.to_string()))
-        .status()
-        .await?;
-
-    if !r.success() {
-        return Err(ClientError::Other(
-            "Erreur au démarrage du serv".to_string(),
-        ));
-    }
-
-    fs::remove_dir_all(Path::new("worlds").join(id.to_string())).await?;
-
-    delete(servers_dsl::servers)
-        .filter(servers_dsl::name.eq(&name))
-        .execute(&mut pool.get().await?)
-        .await?;
-
-    {
-        let mut data = ctx.data.write().await;
-
-        if let Some(strings) = data.get_mut::<ServNames>() {
-            strings.retain(|s| *s != name);
+    if let Some((id, creator, started)) = server {
+        if command.user.id.get().cast_signed() != creator
+            && !command
+                .member
+                .clone()
+                .unwrap()
+                .permissions
+                .unwrap()
+                .contains(Permissions::MANAGE_GUILD)
+        {
+            return Err(ClientError::OtherStatic(
+                "Vous n'avez pas la permission pour suprimer le serveur.",
+            ));
         }
+
+        if started {
+            return Err(ClientError::OtherStatic("Le serveur est lancé."));
+        }
+
+        let embed = CreateEmbed::new()
+            .description("**Supression du serveur...**".to_string())
+            .color(EMBED_COLOR);
+
+        command
+            .edit_response(
+                &ctx.http,
+                serenity::builder::EditInteractionResponse::new().add_embed(embed),
+            )
+            .await?;
+
+        let r = Command::new("docker")
+            .args(["compose", "rm", "-f"])
+            .current_dir(Path::new("worlds").join(id.to_string()))
+            .status()
+            .await?;
+
+        if !r.success() {
+            return Err(ClientError::Other(
+                "Erreur au démarrage du serv".to_string(),
+            ));
+        }
+
+        fs::remove_dir_all(Path::new("worlds").join(id.to_string())).await?;
+
+        delete(servers_dsl::servers)
+            .filter(servers_dsl::name.eq(&name))
+            .execute(&mut pool.get().await?)
+            .await?;
+
+        {
+            let mut data = ctx.data.write().await;
+
+            if let Some(strings) = data.get_mut::<ServNames>() {
+                strings.retain(|s| *s != name);
+            }
+        }
+
+        log::info!("Deleted server : {name}!");
+
+        let embed2 = CreateEmbed::new()
+            .description(format!("**Serveur ``{name}`` supprimé !**"))
+            .color(EMBED_COLOR);
+
+        command
+            .edit_response(
+                &ctx.http,
+                serenity::builder::EditInteractionResponse::new().add_embed(embed2),
+            )
+            .await?;
+
+        Ok(())
+    } else {
+        Err(ClientError::OtherStatic("Ce serveur n'existe pas."))
     }
-
-    log::info!("Deleted server : {name}!");
-
-    let embed2 = CreateEmbed::new()
-        .description(format!("**Serveur ``{name}`` supprimé !**"))
-        .color(EMBED_COLOR);
-
-    command
-        .edit_response(
-            &ctx.http,
-            serenity::builder::EditInteractionResponse::new().add_embed(embed2),
-        )
-        .await?;
-
-    Ok(())
 }
 
 pub fn register() -> CreateCommand {

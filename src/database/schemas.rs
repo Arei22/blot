@@ -5,6 +5,8 @@ diesel::table! {
         version -> Text,
         crack -> Bool,
         port -> BigInt,
+        creator -> BigInt,
+        moded -> Bool,
         started -> Bool
     }
 }
